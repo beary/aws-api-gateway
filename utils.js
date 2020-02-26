@@ -273,12 +273,13 @@ const createMethods = async ({ apig, apiId, endpoints }) => {
 
 const createIntegration = async ({ apig, lambda, apiId, endpoint }) => {
   const isLambda = !!endpoint.function
-  let functionName, accountId, region
+  let functionName, accountId, region, partition
 
   if (isLambda) {
     functionName = endpoint.function.split(':')[6]
     accountId = endpoint.function.split(':')[4]
     region = endpoint.function.split(':')[3] // todo what if the lambda in another region?
+    partition = endpoint.function.split(':')[1]
   }
 
   const integrationParams = {
@@ -288,7 +289,7 @@ const createIntegration = async ({ apig, lambda, apiId, endpoint }) => {
     type: isLambda ? 'AWS_PROXY' : 'HTTP_PROXY',
     integrationHttpMethod: 'POST',
     uri: isLambda
-      ? `arn:aws:apigateway:${region}:lambda:path/2015-03-31/functions/${endpoint.function}/invocations`
+      ? `arn:${partition}:apigateway:${region}:lambda:path/2015-03-31/functions/${endpoint.function}/invocations`
       : endpoint.proxyURI
   }
 
@@ -311,7 +312,7 @@ const createIntegration = async ({ apig, lambda, apiId, endpoint }) => {
       Action: 'lambda:InvokeFunction',
       FunctionName: functionName,
       Principal: 'apigateway.amazonaws.com',
-      SourceArn: `arn:aws:execute-api:${region}:${accountId}:${apiId}/*/*`,
+      SourceArn: `arn:${partition}:execute-api:${region}:${accountId}:${apiId}/*/*`,
       StatementId: `${functionName}-${apiId}`
     }
 
@@ -427,6 +428,7 @@ const removeApi = async ({ apig, apiId }) => {
 const createAuthorizer = async ({ apig, lambda, apiId, endpoint }) => {
   if (endpoint.authorizer) {
     const authorizerName = endpoint.authorizer.split(':')[6]
+    const partition = endpoint.authorizer.split(':')[1]
     const region = endpoint.authorizer.split(':')[3]
     const accountId = endpoint.authorizer.split(':')[4]
 
@@ -441,7 +443,7 @@ const createAuthorizer = async ({ apig, lambda, apiId, endpoint }) => {
         name: authorizerName,
         restApiId: apiId,
         type: 'TOKEN',
-        authorizerUri: `arn:aws:apigateway:${region}:lambda:path/2015-03-31/functions/${endpoint.authorizer}/invocations`,
+        authorizerUri: `arn:${partition}:apigateway:${region}:lambda:path/2015-03-31/functions/${endpoint.authorizer}/invocations`,
         identitySource: 'method.request.header.Auth'
       }
 
@@ -451,7 +453,7 @@ const createAuthorizer = async ({ apig, lambda, apiId, endpoint }) => {
         Action: 'lambda:InvokeFunction',
         FunctionName: authorizerName,
         Principal: 'apigateway.amazonaws.com',
-        SourceArn: `arn:aws:execute-api:${region}:${accountId}:${apiId}/*/*`,
+        SourceArn: `arn:${partition}:execute-api:${region}:${accountId}:${apiId}/*/*`,
         StatementId: `${authorizerName}-${apiId}`
       }
 
